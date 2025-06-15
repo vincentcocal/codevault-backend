@@ -16,7 +16,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(helmet());
@@ -299,7 +298,8 @@ app.patch('/snippets/:id/toggle-public', authenticate, (req, res) => {
   );
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
