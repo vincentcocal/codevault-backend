@@ -1,4 +1,5 @@
 node_modules/
+node_modules/.cache/
 database/
 .env
 users.json
