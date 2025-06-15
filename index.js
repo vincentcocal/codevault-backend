@@ -24,7 +24,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://codevault-frontend-b511-892wh3kno-vincent-cocals-projects.vercel.app'
+    'https://codevault-frontend-b511.vercel.app/'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
