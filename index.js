@@ -1,57 +1,85 @@
 require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pefge7-vogCas-kondyg'; // replace key with env variable in production
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables');
+  process.exit(1);
+}
 
-
-console.log('STARTING index.js');
-
-
-console.log('Loading fs...');
-const fs = require('fs');
-console.log('Loading bcryptjs...');
 const bcrypt = require('bcryptjs');
-console.log('Loading express...');
 const express = require('express');
-
-const sqlite3 = require('sqlite3').verbose();
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 const PORT = 3001;
 
 app.use(express.json());
-app.use(cors());
+app.use(helmet());
 
-// Initialize SQLite database
-const path = require('path'); 
-const db = new sqlite3.Database('C:/Users/Vincent/CodeVault/codevault-backend/database/codevault.db', (err) => {
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+const dbPath = path.join(__dirname, 'database', 'codevault.db');
+
+// Create database directory if it doesn't exist
+const dbDir = path.join(__dirname, 'database');
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir);
+}
+
+fs.access(dbPath, fs.constants.F_OK | fs.constants.W_OK, (err) => {
+  if (err) {
+    console.error('DB file does NOT exist or is NOT writable:', err);
+  } else {
+    console.log('DB file exists and is writable');
+  }
+});
+
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err);
   } else {
     console.log('Connected to SQLite database');
-    // Create users table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
-      )
-    `);
-    // Create snippets table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS snippets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        code TEXT NOT NULL,
-        language TEXT NOT NULL,
-        tags TEXT,
-        is_public INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
+    db.serialize(() => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL
+        )
+      `);
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS snippets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          code TEXT NOT NULL,
+          language TEXT NOT NULL,
+          tags TEXT,
+          is_public INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+    });
   }
+});
+
+// Rate limiter for login to prevent brute force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 login requests per windowMs
+  message: { message: 'Too many login attempts, please try again later.' }
 });
 
 // Root route
@@ -97,8 +125,8 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// Login route
-app.post('/login', (req, res) => {
+// Login route with rate limiter
+app.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -141,6 +169,7 @@ const authenticate = (req, res, next) => {
 };
 
 // Snippet CRUD endpoints
+
 // Create snippet
 app.post('/snippets', authenticate, (req, res) => {
   const { title, code, language, tags, is_public } = req.body;
@@ -194,9 +223,14 @@ app.get('/snippets/:id', authenticate, (req, res) => {
   );
 });
 
-// Update snippet
+// Update snippet with validation
 app.put('/snippets/:id', authenticate, (req, res) => {
   const { title, code, language, tags, is_public } = req.body;
+
+  if (!title || !code || !language) {
+    return res.status(400).json({ message: 'Title, code, and language required' });
+  }
+
   db.run(
     'UPDATE snippets SET title = ?, code = ?, language = ?, tags = ?, is_public = ? WHERE id = ? AND user_id = ?',
     [title, code, language, tags?.join(','), is_public ? 1 : 0, req.params.id, req.user.userId],
@@ -233,7 +267,6 @@ app.delete('/snippets/:id', authenticate, (req, res) => {
 
 // Toggle public/private status
 app.patch('/snippets/:id/toggle-public', authenticate, (req, res) => {
-  // First get the current value
   db.get(
     'SELECT is_public FROM snippets WHERE id = ? AND user_id = ?',
     [req.params.id, req.user.userId],
@@ -261,7 +294,6 @@ app.patch('/snippets/:id/toggle-public', authenticate, (req, res) => {
     }
   );
 });
-
 
 // Start the server
 app.listen(PORT, () => {
