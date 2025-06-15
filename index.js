@@ -16,15 +16,19 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
 app.use(helmet());
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://codevault-frontend-b511-892wh3kno-vincent-cocals-projects.vercel.app'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
 const dbPath = path.join(__dirname, 'database', 'codevault.db');
