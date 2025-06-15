@@ -14,8 +14,9 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-
 const app = express();
+
+const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(helmet());
@@ -29,6 +30,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
+
 
 const dbPath = process.env.DATABASE_URL || path.join(__dirname, 'database', 'codevault.db');
 // Create database directory if it doesn't exist
@@ -297,7 +299,6 @@ app.patch('/snippets/:id/toggle-public', authenticate, (req, res) => {
   );
 });
 
-const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
