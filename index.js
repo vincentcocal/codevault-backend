@@ -30,8 +30,7 @@ app.use(cors({
   credentials: true,
 }));
 
-const dbPath = path.join(__dirname, 'database', 'codevault.db');
-
+const dbPath = process.env.DATABASE_URL || path.join(__dirname, 'database', 'codevault.db');
 // Create database directory if it doesn't exist
 const dbDir = path.join(__dirname, 'database');
 if (!fs.existsSync(dbDir)) {
