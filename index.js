@@ -16,7 +16,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
+  console.log('PORT env var:', process.env.PORT);
+
 
 app.use(express.json());
 app.use(helmet());
